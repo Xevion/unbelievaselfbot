@@ -1,14 +1,14 @@
-import argparse
 import asyncio
 import logging
 import re
 import time
-from datetime import datetime
-from pprint import pprint
 from typing import Optional, Tuple
 
 import discord
 from discord.ext.tasks import loop
+
+from bot import constants, parsers, helpers
+from bot.constants import PlayOptions
 
 logger = logging.getLogger(__file__)
 logger.setLevel(constants.LOGGING_LEVEL)
@@ -29,16 +29,6 @@ class UnbelievaClient(discord.Client):
             ('$crime', 20 * 60 + 5)
         ]
         self.task_times = {}
-        self.durations = {
-            'hour': 3600,
-            'minute': 60,
-            'second': 1
-        }
-        self.task_parsings = {
-            'work': '$work',
-            'be a slut': '$slut',
-            'commit a crime': '$crime'
-        }
 
         self.money = 0
         self.last_deposit = -1
@@ -53,39 +43,38 @@ class UnbelievaClient(discord.Client):
         self.check_task_available.start()
         logger.info(f'Connected to #{self.channel.name} in {self.channel.guild.name}')
 
-    def get_epoch(self, dt: datetime) -> float:
-        return (dt - datetime(1970, 1, 1)).total_seconds()
-
     async def on_message(self, message: discord.Message):
-        if message.channel == self.channel:
-            if message.author.id == self.bot and len(message.embeds) > 0:
-                embed = message.embeds[0]
+        # Ignore messages in other channels or sent by myself
+        if message.channel != self.channel or message.author == self.user:
+            return
 
-                if embed.author.name == f'{self.user.name}#{self.user.discriminator}':
-                    # Handling for task wait times
-                    task_match = re.search(r'You cannot (work|be a slut|commit a crime) for ([\w\s]+)\.',
-                                           embed.description)
-                    if task_match:
-                        self.handle_task_wait(task_match)
+        if message.author.id == self.bot and len(message.embeds) > 0:
+            embed = message.embeds[0]
+            is_self = embed.author.name == f'{self.user.name}#{self.user.discriminator}'
 
-                    # Handling earnings
-                    money_match = re.search(r'\$([0-9,]+)', embed.description)
-                    if money_match and 'deposited' not in embed.description.lower():
-                        change = int(money_match.group(1).replace(',', ''))
-                        if embed.colour.value == 15684432:
-                            self.money -= change
-                            logger.info(f'Lost ${change}')
-                        elif embed.colour.value == 6732650:
-                            self.money += change
-                            logger.info(f'Gained ${change}')
+            if is_self:
+                if parsers.TaskCooldownMessage.check_valid(message):
+                    tcm = parsers.TaskCooldownMessage(message)
 
-                # Handling for blackjack
-                if embed.description.startswith('Type `hit` to draw another card'):
-                    options = self.parse_options(embed.description)
-                    my_cards = self.parse_cards(embed.fields[0])
-                    dealer_cards = self.parse_cards(embed.fields[1])
-                    print(options, my_cards, dealer_cards)
-                    # self.current_blackjack = message
+                    logger.debug(f'"{tcm.duration_unparsed}" => {tcm.duration}s')
+                    logger.debug(f'Changed {tcm.task_type} to wait {tcm.duration + 2}s instead.')
+                    self.task_times[tcm.task_type] = tcm.available_at
+
+                # helpers.print_embed(embed)
+
+            # Handling earnings
+            if parsers.TaskResponse.check_valid(message):
+                tr = parsers.TaskResponse(message)
+                self.money += tr.change
+                logger.log(logging.INFO if is_self else logging.DEBUG, tr.log_message(embed.author.name))
+
+            # Handling for blackjack
+            if embed.description.startswith('Type `hit` to draw another card'):
+                options = self.parse_options(embed.description)
+                my_cards = self.parse_cards(embed.fields[0])
+                dealer_cards = self.parse_cards(embed.fields[1])
+                print(options, my_cards, dealer_cards)
+                # self.current_blackjack = message
 
     def parse_options(self, options_str: str) -> PlayOptions:
         """
@@ -105,13 +94,9 @@ class UnbelievaClient(discord.Client):
         """
         emote_pattern = r'<:([A-z0-9]+):\d+>'
         value_pattern = r'Value: (Soft )?(\d+)'
-        cards = list(re.finditer(emote_pattern,  card_str.value))
+        cards = list(re.finditer(emote_pattern, card_str.value))
         value = re.search(value_pattern, card_str.value)
-        # pprint(card_str.value)
-        # print(cards, [card.groups() for card in cards])
-        # print(value, value.groups())
 
-        c1: str
         c2: Optional[str]
         c1, c2 = cards[0].group(1), cards[1].group(1)
         c2 = c2 if c2 != 'cardBack' else None
