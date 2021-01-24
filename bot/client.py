@@ -1,13 +1,14 @@
 import asyncio
+import ctypes
 import logging
 import re
-import time
+from datetime import datetime
 from typing import Optional, Tuple
 
 import discord
 from discord.ext.tasks import loop
 
-from bot import constants, parsers, helpers
+from bot import constants, parsers, timings
 from bot.constants import PlayOptions
 
 logger = logging.getLogger(__file__)
@@ -23,12 +24,13 @@ class UnbelievaClient(discord.Client):
 
         self.channel: Optional[discord.TextChannel] = None
         self.bot: Optional[discord.User] = None
-        self.tasks = [
-            ('$work', 5 * 60 + 5),
-            ('$slut', 13 * 60 + 5),
-            ('$crime', 20 * 60 + 5)
-        ]
-        self.task_times = {}
+        self.tasks = {
+            '$work': timings.Cooldown(5 * 60 + 2),
+            '$slut': timings.Cooldown(13 * 60 + 2),
+            '$crime': timings.Cooldown(20 * 60 + 2),
+            '$dep all': timings.Cooldown(30 * 60)
+        }
+        self.command_cooldown = timings.Cooldown(5)
 
         self.money = 0
         self.last_deposit = -1
@@ -38,9 +40,11 @@ class UnbelievaClient(discord.Client):
 
     async def on_ready(self):
         await self.wait_until_ready()
+
         self.channel: discord.TextChannel = self.get_channel(self.channel_id)
         self.bot = self.bot_id
         self.check_task_available.start()
+        ctypes.windll.kernel32.SetConsoleTitleW(f"#{self.channel.name}/{self.channel.guild.name}")
         logger.info(f'Connected to #{self.channel.name} in {self.channel.guild.name}')
 
     async def on_message(self, message: discord.Message):
@@ -58,9 +62,7 @@ class UnbelievaClient(discord.Client):
 
                     logger.debug(f'"{tcm.duration_unparsed}" => {tcm.duration}s')
                     logger.debug(f'Changed {tcm.task_type} to wait {tcm.duration + 2}s instead.')
-                    self.task_times[tcm.task_type] = tcm.available_at
-
-                # helpers.print_embed(embed)
+                    self.tasks[tcm.task_type].change_expiration(tcm.available_at)
 
             # Handling earnings
             if parsers.TaskResponse.check_valid(message):
@@ -74,7 +76,6 @@ class UnbelievaClient(discord.Client):
                 my_cards = self.parse_cards(embed.fields[0])
                 dealer_cards = self.parse_cards(embed.fields[1])
                 print(options, my_cards, dealer_cards)
-                # self.current_blackjack = message
 
     def parse_options(self, options_str: str) -> PlayOptions:
         """
@@ -111,52 +112,30 @@ class UnbelievaClient(discord.Client):
         print(options, my_cards, dealer_cards)
         pass
 
-    def handle_task_wait(self, match: re.Match):
-        task_command = self.task_parsings[match.group(1)]
-        duration_match = re.match(
-            r'(\d+) (hour|minute|second)s?(?: and (\d+) (hour|minute|second)s?)?',
-            match.group(2))
-
-        groups = len(list(filter(lambda s: s is not None, duration_match.groups())))
-        duration = 0
-        for i in range(0, groups // 2):
-            x, y = (i * 2) + 1, (i * 2) + 2
-            duration += int(duration_match.group(x)) * self.durations[duration_match.group(y)]
-        epoch = time.time() + duration + 2
-        logger.debug(f'"{match.group(2)}" => {duration}s')
-        logger.debug(f'Changed {task_command} to wait {duration + 2}s instead.')
-        self.task_times[task_command] = epoch
-
     @loop(seconds=1)
     async def check_task_available(self):
+        """
+        Loop to run tasks as soon as they are available.
+        """
         await self.wait_until_ready()
 
-        # Check for available tasks
-        now = time.time()
-        task_completed = False
-        for task, duration in self.tasks:
-            if self.task_times.get(task, 0) <= now:
-                logger.debug(f'Planning to execute {task} {duration}s from now.')
-                self.task_times[task] = now + duration
-                await self.command_sleep()
+        for task, task_cooldown in self.tasks.items():
+            # Task is ready to be ran again
+            if task_cooldown.ready:
+                # Ensure the cooldown between commands has ran.
+                await self.command_cooldown.sleep()
+
+                # Ready to execute the task.
                 logger.debug(f'Executing {task} task.')
                 await self.channel.send(task)
-                self.last_message = time.time()
-                task_completed = True
 
-        if not task_completed:
-            if self.last_deposit + (30 * 60) <= now:
-                await self.command_sleep()
-                await self.channel.send('$dep all')
-                self.last_message = time.time()
-                self.last_deposit = time.time()
-
-            if self.current_blackjack is not None:
-                self.handle_blackjack()
+                # Activate the cooldowns
+                task_cooldown.hit()
+                self.command_cooldown.hit()
 
     async def command_sleep(self):
         """Sleep right before sending a command."""
-        now = time.time()
+        now = datetime.utcnow().timestamp()
         time_between = now - self.last_message
         wait_time = 6 - time_between
 
