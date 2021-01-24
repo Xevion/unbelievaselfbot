@@ -1,7 +1,12 @@
+import logging
+import os
 import re
 from typing import Tuple, Optional, List, Union, Dict
 
-from bot import exceptions
+from bot import exceptions, constants
+
+logger = logging.getLogger(__file__)
+logger.setLevel(constants.LOGGING_LEVEL)
 
 
 class Card(object):
@@ -10,6 +15,9 @@ class Card(object):
                '2': 'Two', 'k': 'King', 'q': 'Queen', 'j': 'Jack', 'a': 'Ace'}
 
     def __init__(self, card: str) -> None:
+        if 4 <= len(card) <= 1:
+            raise exceptions.InvalidCard(f'By length, {card} is invalid. Identifiers are 2 to 3 characters long.')
+
         self.raw_card = card
         self.symbol, self.suit = self.parts()
 
@@ -51,7 +59,7 @@ class Card(object):
         Separates the raw card identifier into it's symbol and suit.
         Handles aces, face cards and numerical cards with any of the four suites.
         """
-        match = re.match(r'^(\d{1,2}|[aqkj])([cdhs])$', self.raw_card)
+        match = re.match(r'^(\d{1,2}|[aqkj])([cdhs])$', self.raw_card, flags=re.IGNORECASE)
         return match.group(1), match.group(2)
 
     def __repr__(self) -> str:
@@ -60,7 +68,8 @@ class Card(object):
 
 def generate_table_structure(filename: str, column_keys: List[str], row_keys: List[str]) -> Dict[Tuple[str, str], str]:
     data = {}
-    with open(filename) as hard_file:
+    logger.debug(f'Generating table structure with {filename}')
+    with open(os.path.join(constants.STATIC_DIR, filename)) as hard_file:
         raw_data = [list(line) for line in hard_file.read().split('\n')]
     for x, col_key in enumerate(column_keys):
         for y, row_key in enumerate(row_keys):
@@ -77,9 +86,9 @@ class Blackjack(object):
     pair_column = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A']
     pair_row = ['A-A', 'T-T', '9-9', '8-8', '7-7', '6-6', '5-5', '4-4', '3-3', '2-2']
 
-    hard_data = generate_table_structure('static/baseline_hard.dat', hard_column, hard_row)
-    soft_data = generate_table_structure('static/baseline_soft.dat', soft_column, soft_row)
-    pair_data = generate_table_structure('static/baseline_pairs.dat', pair_column, pair_row)
+    hard_data = generate_table_structure('baseline_hard.dat', hard_column, hard_row)
+    soft_data = generate_table_structure('baseline_soft.dat', soft_column, soft_row)
+    pair_data = generate_table_structure('baseline_pairs.dat', pair_column, pair_row)
 
     HARD = 0
     SOFT = 1
