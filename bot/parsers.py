@@ -35,8 +35,8 @@ class EmbedMessage(BaseMessage, ABC):
 
 
 class TaskCooldownMessage(EmbedMessage):
-    COOLDOWN_REGEX = r'You cannot (work|be a slut|commit a crime) for ([\w\s]+)\.'
-    DURATION_REGEX = r'(\d+) (hour|minute|second)s?(?: and (\d+) (hour|minute|second)s?)?'
+    COOLDOWN_REGEX = re.compile(r'You cannot (work|be a slut|commit a crime) for ([\w\s]+)\.')
+    DURATION_REGEX = re.compile(r'(\d+) (hour|minute|second)s?(?: and (\d+) (hour|minute|second)s?)?')
     DELAY = 2
 
     durations = {'hour': 3600, 'minute': 60, 'second': 1}
@@ -60,16 +60,19 @@ class TaskCooldownMessage(EmbedMessage):
 
 
 class TaskResponse(EmbedMessage):
+    MONEY_REGEX = re.compile(r'\$([0-9,]+)')
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.change = 0
 
-        money_match = re.search(r'\$([0-9,]+)', self.embed.description)
+        self.change = 0
+        money_match = re.search(r'', self.embed.description)
         if money_match and 'deposited' not in self.embed.description.lower():
             change = int(money_match.group(1).replace(',', ''))
             if self.embed.colour.value == 6732650:
                 self.change += change
-                # logger.info(f'Gained ${change}')
+                logger.info(f'{self.message.author} Gained ${change}')
             if self.embed.colour.value == 15684432:
                 self.change -= change
+                logger.info(f'{self.message.author} Lost ${change}')
                 # logger.info(f'Lost ${change}')

@@ -87,17 +87,14 @@ class UnbelievaClient(discord.Client):
                     print(options, my_cards, dealer_cards)
                     # self.current_blackjack = message
 
-    def parse_options(self, options_str: str) -> Tuple[bool, bool, bool, bool]:
+    def parse_options(self, options_str: str) -> PlayOptions:
         """
         Return a tuple of booleans describing what the player can do.
         Tuple Options: [hit, stand, double_down, split]
         """
-        return (
-            '`hit`' in options_str,
-            '`stand`' in options_str,
-            '`double down`' in options_str,
-            '`split`' in options_str
-        )
+        options = [f'`{sub}`' in options_str for sub in ['hit', 'stand', 'double down', 'split']]
+        # noinspection PyProtectedMember
+        return PlayOptions._make(options)
 
     def parse_cards(self, card_str: discord.embeds.EmbedProxy) -> Tuple[str, Optional[str], Tuple[int, bool]]:
         """

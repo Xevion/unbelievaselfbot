@@ -12,3 +12,11 @@ class NoAceValue(BlackjackException):
 
 class IndetermineValue(BlackjackException):
     pass
+
+
+class InvalidCard(BlackjackException):
+    pass
+
+
+class CooldownRequired(UnbelievableException):
+    pass
