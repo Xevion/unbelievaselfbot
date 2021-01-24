@@ -25,6 +25,6 @@ if __name__ == "__main__":
     client = UnbelievaClient(parsed.bot, parsed.channel)
 
     logger.info('Starting bot.')
-    with open('../token.dat', 'r') as file:
+    with open(constants.TOKEN, 'r') as file:
         token = file.read()
     client.run(token, bot=False)
