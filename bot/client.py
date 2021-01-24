@@ -11,7 +11,7 @@ import discord
 from discord.ext.tasks import loop
 
 logger = logging.getLogger(__file__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(constants.LOGGING_LEVEL)
 
 
 class UnbelievaClient(discord.Client):

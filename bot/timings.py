@@ -1,7 +1,11 @@
+import logging
 import time
 from typing import Union, Optional
 
-from bot import exceptions
+from bot import exceptions, constants
+
+logger = logging.getLogger(__file__)
+logger.setLevel(constants.LOGGING_LEVEL)
 
 
 class Cooldown(object):

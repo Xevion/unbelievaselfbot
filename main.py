@@ -1,11 +1,9 @@
 import argparse
 import logging
 
+from bot import constants
 from bot.client import UnbelievaClient
 
-logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(funcName)s] %(message)s')
-logger = logging.getLogger(__file__)
-logger.setLevel(logging.DEBUG)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start the discord bot.')
@@ -14,6 +12,16 @@ if __name__ == "__main__":
     parser.add_argument('bot', metavar='BOT', type=int, help='The ID of the UnbelievaBoat bot to target.')
 
     parsed = parser.parse_args()
+
+    logger = logging.getLogger(__file__)
+    # noinspection PyArgumentList
+    logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(funcName)s] %(message)s',
+                        handlers=[
+                            logging.FileHandler(f"bot-{parsed.channel}.log"),
+                            logging.StreamHandler()
+                        ])
+    logger.setLevel(constants.LOGGING_LEVEL)
+
     client = UnbelievaClient(parsed.bot, parsed.channel)
 
     logger.info('Starting bot.')

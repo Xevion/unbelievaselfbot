@@ -3,7 +3,7 @@ from pprint import pprint
 import discord
 
 
-def print(embed: discord.Embed) -> None:
+def print_embed(embed: discord.Embed) -> None:
     pprint((
         embed.title,
         embed.description,

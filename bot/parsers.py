@@ -4,8 +4,10 @@ from abc import ABC
 
 import discord
 
+from bot import constants
+
 logger = logging.getLogger(__file__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(constants.LOGGING_LEVEL)
 
 
 class BaseMessage(object):
