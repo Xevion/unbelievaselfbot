@@ -60,7 +60,7 @@ class TaskCooldownMessage(EmbedMessage):
             self.duration += int(duration_match.group(x)) * TaskCooldownMessage.__durations[duration_match.group(y)]
 
         self.task_type = TaskCooldownMessage.__task_parsings[match.group(1)]
-        self.available_at = self.message.created_at.timestamp() + TaskCooldownMessage.DELAY
+        self.available_at = self.message.created_at.timestamp() + self.duration + TaskCooldownMessage.DELAY
 
     @classmethod
     def check_valid(cls, message: discord.Message) -> bool:
