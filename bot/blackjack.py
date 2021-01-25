@@ -116,7 +116,7 @@ def generate_table_structure(filename: str, column_keys: List[str], row_keys: Li
     # Iterate along the column keys and build the dictionary
     for x, col_key in enumerate(column_keys):
         for y, row_key in enumerate(row_keys):
-            data[(col_key, row_key)] = raw_data[y][x]
+            data[(row_key, col_key)] = raw_data[y][x]
 
     return data
 
@@ -143,22 +143,33 @@ class Blackjack(object):
         """With all information presented, calculates the final decision."""
 
         choice: str = 'S'  # Default is to stand
+        usedDefault = True
 
         # Pair checking first
-        if len(cards) == 2:
-            if cards[0] == cards[1]:
-                symbol = {cards[0].table}
-                logger.debug(f'Pair of {cards[0]} found.')
-                choice = Blackjack.access(Blackjack.PAIR, (f'{symbol}-{symbol}', dealer.table))
-
-        if any(card.isAce() for card in cards):
+        if len(cards) == 2 and cards[0] == cards[1]:
+            symbol = {cards[0].table}
+            logger.debug(f'Pair of {cards[0]} found.')
+            choice = Blackjack.access(Blackjack.PAIR, (f'{symbol}-{symbol}', dealer.table))
+            usedDefault = False
+        elif any(card.isAce() for card in cards):
             sum_value = sum(card.value for card in cards if not card.isAce())
-            if 2 < sum_value < 9:
+            if 2 <= sum_value <= 9:
                 choice = Blackjack.access(Blackjack.SOFT, (f'A-{sum_value}', dealer.table))
+                usedDefault = False
             else:
-                logger.error(
-                    f'Sum of cards was a Soft {sum_value} ({", ".join(card.symbol.upper() for card in cards)})')
+                cards = ", ".join(card.symbol.upper() for card in cards)
+                logger.error(f'Sum of cards was a Soft {sum_value} ({cards})')
+        else:
+            sum_value = sum(card.value for card in cards)
+            if 5 <= sum_value <= 20:
+                choice = Blackjack.access(Blackjack.HARD, (str(sum_value), dealer.table))
+                usedDefault = False
+            else:
+                cards = ", ".join(card.symbol.upper() for card in cards)
+                logger.error(f'Sum of cards was a Soft {sum_value} ({cards})')
 
+        if usedDefault:
+            logger.warning('No tables were accessed to make a choice. Defaulting to stand.')
         return Blackjack.convert_letter(choice)
 
     def options_convert(self, choice: str, options: Tuple[bool, bool, bool, bool]):
@@ -166,28 +177,25 @@ class Blackjack(object):
 
         new_choice = None
         if choice == 'P':
-            if options.split: pass
-            else:
+            if not options.split:
                 logger.warning(f'Poor options available for splitting. ({options})')
                 new_choice = 'S'
         elif choice == 'D':
-            if options.double: pass
-            else:
+            if not options.double:
                 logger.warning(f'Poor options available for doubling. ({options})')
                 new_choice = 'H'
         elif choice == 'H':
-            if options.hit: pass
-            else:
+            if not options.hit:
                 logger.error(f'Hit option preferred but not possible? ({options})')
                 new_choice = 'S'
         elif choice == 'S':
-            if options.stand: pass
-            else:
+            if not options.stand:
                 logger.error(f'Stand option preferred but not possible? ({options})')
                 new_choice = 'H'
 
         if new_choice is not None:
-            logger.info(f'Option verification yielded a different method than originally selected: {choice} -> {new_choice}')
+            logger.info(
+                f'Option verification yielded a different method than originally selected: {choice} -> {new_choice}')
             return new_choice
         return choice
 

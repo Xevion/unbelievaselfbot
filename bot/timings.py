@@ -46,7 +46,7 @@ class Cooldown(object):
     async def sleep(self) -> None:
         if self.ready:
             return
-        logger.debug(f'Sleeping for {self.time_left} before sending a command.')
+        logger.debug(f'Sleeping for {round(self.time_left, 2)}s before sending a command.')
         await asyncio.sleep(self.time_left)
 
     @property

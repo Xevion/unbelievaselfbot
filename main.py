@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # noinspection PyArgumentList
     logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(funcName)s] %(message)s',
                         handlers=[
-                            logging.FileHandler(f"bot-{parsed.channel}.log"),
+                            logging.FileHandler(f"bot-{parsed.channel}.log", encoding='utf-8'),
                             logging.StreamHandler()
                         ])
     logger.setLevel(constants.LOGGING_LEVEL)
