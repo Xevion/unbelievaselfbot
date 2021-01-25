@@ -123,20 +123,20 @@ def generate_table_structure(filename: str, column_keys: List[str], row_keys: Li
 
 class Blackjack(object):
     # The row and column headers for the hair, soft and pair baseline tables.
-    hard_column = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A']
-    hard_row = ['20', '19', '18', '17', '16', '15', '14', '13', '12', '11', '10', '9', '8', '7', '6', '5']
-    soft_column = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A']
-    soft_row = ['A-9', 'A-8', 'A-7', 'A-6', 'A-5', 'A-4', 'A-3', 'A-2']
-    pair_column = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A']
-    pair_row = ['A-A', 'T-T', '9-9', '8-8', '7-7', '6-6', '5-5', '4-4', '3-3', '2-2']
+    __hard_column = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A']
+    __hard_row = ['20', '19', '18', '17', '16', '15', '14', '13', '12', '11', '10', '9', '8', '7', '6', '5']
+    __soft_column = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A']
+    __soft_row = ['A-9', 'A-8', 'A-7', 'A-6', 'A-5', 'A-4', 'A-3', 'A-2']
+    __pair_column = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A']
+    __pair_row = ['A-A', 'T-T', '9-9', '8-8', '7-7', '6-6', '5-5', '4-4', '3-3', '2-2']
 
-    hard_data = generate_table_structure('baseline_hard.dat', hard_column, hard_row)
-    soft_data = generate_table_structure('baseline_soft.dat', soft_column, soft_row)
-    pair_data = generate_table_structure('baseline_pairs.dat', pair_column, pair_row)
+    __letter_meanings = {'H': 'hit', 'S': 'stand', 'D': 'double down', 'P': 'split'}
 
-    HARD = 0
-    SOFT = 1
-    PAIR = 2
+    __hard_data = generate_table_structure('baseline_hard.dat', __hard_column, __hard_row)
+    __soft_data = generate_table_structure('baseline_soft.dat', __soft_column, __soft_row)
+    __pair_data = generate_table_structure('baseline_pairs.dat', __pair_column, __pair_row)
+
+    HARD, SOFT, PAIR = 0, 1, 2
 
     @staticmethod
     def choose(options: constants.PlayOptions, cards: List[Card], dealer: Card) -> str:
@@ -172,7 +172,12 @@ class Blackjack(object):
             logger.warning('No tables were accessed to make a choice. Defaulting to stand.')
         return Blackjack.convert_letter(choice)
 
-    def options_convert(self, choice: str, options: Tuple[bool, bool, bool, bool]):
+    @classmethod
+    def convert_letter(cls, letter: str) -> str:
+        """Simple class method for returning the player response to the bot based on the letter given."""
+        return Blackjack.__letter_meanings[letter]
+
+    def options_convert(self, choice: str, options: constants.PlayOptions) -> str:
         """Converts the choice to the best possible choice based on the options given by the bot."""
 
         new_choice = None
@@ -208,6 +213,6 @@ class Blackjack(object):
         :param table:
         :return:
         """
-        if table == cls.HARD: return cls.hard_data[key]
-        if table == cls.SOFT: return cls.soft_data[key]
-        if table == cls.PAIR: return cls.pair_data[key]
+        if table == cls.HARD: return cls.__hard_data[key]
+        if table == cls.SOFT: return cls.__soft_data[key]
+        if table == cls.PAIR: return cls.__pair_data[key]

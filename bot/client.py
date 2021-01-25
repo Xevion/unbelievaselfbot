@@ -1,15 +1,12 @@
-import asyncio
 import ctypes
 import logging
-import re
-from datetime import datetime
-from typing import Optional, Tuple
+from typing import Optional
 
 import discord
 from discord.ext.tasks import loop
 
 from bot import constants, parsers, timings, helpers
-from bot.blackjack import Card
+from bot.blackjack import Card, Blackjack
 from bot.constants import PlayOptions
 
 logger = logging.getLogger(__file__)
@@ -31,7 +28,7 @@ class UnbelievaClient(discord.Client):
             '$crime': timings.Cooldown(20 * 60 + 2),
             '$dep all': timings.Cooldown(30 * 60)
         }
-        self.command_cooldown = timings.Cooldown(5)
+        self.command_cooldown = timings.Cooldown(6.5)
 
         self.money = 0
         self.last_deposit = -1
@@ -73,9 +70,11 @@ class UnbelievaClient(discord.Client):
             # Handling for blackjack
             if embed.description.startswith('Type `hit` to draw another card'):
                 options = self.parse_options(embed.description)
-                my_cards = Card.parse_cards(embed.fields[0])
-                dealer_cards = Card.parse_cards(embed.fields[1])
-                print(options, my_cards, dealer_cards)
+                my_cards = Card.parse_cards(embed.fields[0])[1]
+                dealer_card = Card.parse_cards(embed.fields[1])[1][0]
+
+                choice = Blackjack.choose(options, my_cards, dealer_card)
+                logger.info(f'Predicted best choice for Blackjack: {choice}')
 
     def parse_options(self, options_str: str) -> PlayOptions:
         """
@@ -85,14 +84,6 @@ class UnbelievaClient(discord.Client):
         options = [f'`{sub}`' in options_str for sub in ['hit', 'stand', 'double down', 'split']]
         # noinspection PyProtectedMember
         return PlayOptions._make(options)
-
-    def handle_blackjack(self):
-        embed = self.current_blackjack.embeds[0]
-        options = self.parse_options(embed.description)
-        my_cards = self.parse_cards(embed.fields[0])
-        dealer_cards = self.parse_cards(embed.fields[1])
-        print(options, my_cards, dealer_cards)
-        pass
 
     @loop(seconds=1)
     async def check_task_available(self):
