@@ -1,8 +1,7 @@
 import logging
 import os
 import re
-from pprint import pprint
-from typing import Tuple, Optional, List, Dict
+from typing import Tuple, List, Dict
 
 import discord
 
@@ -68,6 +67,14 @@ class Card(object):
         match = re.match(r'^(\d{1,2}|[aqkj])([cdhs])$', self.raw_card, flags=re.IGNORECASE)
         return match.group(1), match.group(2)
 
+    @property
+    def table(self) -> str:
+        """Gets the table key representation of this card. Dealer column, or (partial) Player Soft/Pair rows only."""
+        if self.isAce(): return 'A'
+        if self.isFace(): return 'T'
+        if self.isNumerical(): return self.symbol
+        return '?'
+
     @classmethod
     def parse_cards(cls, card_str: discord.embeds.EmbedProxy) -> Tuple[int, List['Card']]:
         """Given a EmbedProxy relating to a Blackjack Embed, finds a returns a list of Card objects and the value."""
@@ -82,18 +89,35 @@ class Card(object):
 
         return int(value.group(1)), cards
 
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Card):
+            return self.symbol == other.symbol
+        return False
+
     def __repr__(self) -> str:
         return f'Card({self._symbols[self.symbol]} of {self._suits[self.suit]})'
 
 
 def generate_table_structure(filename: str, column_keys: List[str], row_keys: List[str]) -> Dict[Tuple[str, str], str]:
-    data = {}
+    """
+    Using a column and row header variable, create a dictionary representing the table.
+
+    :param filename: The file in the static directory to read data from.
+    :param column_keys: Keys in the column (y)
+    :param row_keys: Keys in the row (x)
+    :return: A dictionary with all keys as a tuple of the column and row key directing to the table's suggested play.
+    """
+
     logger.debug(f'Generating table structure with {filename}')
     with open(os.path.join(constants.STATIC_DIR, filename)) as hard_file:
         raw_data = [list(line) for line in hard_file.read().split('\n') if len(line) > 0]
+
+    data = {}
+    # Iterate along the column keys and build the dictionary
     for x, col_key in enumerate(column_keys):
         for y, row_key in enumerate(row_keys):
             data[(col_key, row_key)] = raw_data[y][x]
+
     return data
 
 
@@ -115,16 +139,57 @@ class Blackjack(object):
     PAIR = 2
 
     @staticmethod
-    def choose(options: Tuple[bool, bool, bool, bool], cards: Tuple[str, Optional[str], Tuple[int, bool]],
-               dealer: Tuple[str, Optional[str], Tuple[int, bool]]) -> str:
+    def choose(options: constants.PlayOptions, cards: List[Card], dealer: Card) -> str:
         """With all information presented, calculates the final decision."""
 
-    def get_ideal_choice(self, cards: List[Card],
-                         dealer: Tuple[str, Optional[str], Tuple[int, bool]]) -> str:
-        """Gets the ideal baseline strategy choice based on my cards and the bot's cards."""
+        choice: str = 'S'  # Default is to stand
+
+        # Pair checking first
+        if len(cards) == 2:
+            if cards[0] == cards[1]:
+                symbol = {cards[0].table}
+                logger.debug(f'Pair of {cards[0]} found.')
+                choice = Blackjack.access(Blackjack.PAIR, (f'{symbol}-{symbol}', dealer.table))
+
+        if any(card.isAce() for card in cards):
+            sum_value = sum(card.value for card in cards if not card.isAce())
+            if 2 < sum_value < 9:
+                choice = Blackjack.access(Blackjack.SOFT, (f'A-{sum_value}', dealer.table))
+            else:
+                logger.error(
+                    f'Sum of cards was a Soft {sum_value} ({", ".join(card.symbol.upper() for card in cards)})')
+
+        return Blackjack.convert_letter(choice)
 
     def options_convert(self, choice: str, options: Tuple[bool, bool, bool, bool]):
         """Converts the choice to the best possible choice based on the options given by the bot."""
+
+        new_choice = None
+        if choice == 'P':
+            if options.split: pass
+            else:
+                logger.warning(f'Poor options available for splitting. ({options})')
+                new_choice = 'S'
+        elif choice == 'D':
+            if options.double: pass
+            else:
+                logger.warning(f'Poor options available for doubling. ({options})')
+                new_choice = 'H'
+        elif choice == 'H':
+            if options.hit: pass
+            else:
+                logger.error(f'Hit option preferred but not possible? ({options})')
+                new_choice = 'S'
+        elif choice == 'S':
+            if options.stand: pass
+            else:
+                logger.error(f'Stand option preferred but not possible? ({options})')
+                new_choice = 'H'
+
+        if new_choice is not None:
+            logger.info(f'Option verification yielded a different method than originally selected: {choice} -> {new_choice}')
+            return new_choice
+        return choice
 
     @classmethod
     def access(cls, table: int, key: Tuple[str, str]) -> str:
