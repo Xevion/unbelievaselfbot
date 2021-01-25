@@ -54,7 +54,7 @@ class UnbelievaClient(discord.Client):
 
         if message.author.id == self.bot_id and len(message.embeds) > 0:
             embed = message.embeds[0]
-            is_self = embed.author.name == f'{self.user.name}#{self.user.discriminator}'
+            is_self = helpers.embed_author_matches(embed, self.user)
 
             if is_self:
                 if parsers.TaskCooldownMessage.check_valid(message):
