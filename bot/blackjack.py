@@ -1,7 +1,10 @@
 import logging
 import os
 import re
-from typing import Tuple, Optional, List, Union, Dict
+from pprint import pprint
+from typing import Tuple, Optional, List, Dict
+
+import discord
 
 from bot import exceptions, constants
 
@@ -10,9 +13,13 @@ logger.setLevel(constants.LOGGING_LEVEL)
 
 
 class Card(object):
-    suits = {'h': 'Hearts', 's': 'Spades', 'c': 'Clubs', 'd': 'Diamonds'}
-    symbols = {'10': 'Ten', '9': 'Nine', '8': 'Eight', '7': 'Seven', '6': 'Six', '5': 'Five', '4': 'Four', '3': 'Three',
-               '2': 'Two', 'k': 'King', 'q': 'Queen', 'j': 'Jack', 'a': 'Ace'}
+    _suits = {'H': 'Hearts', 'S': 'Spades', 'C': 'Clubs', 'D': 'Diamonds'}
+    _symbols = {'10': 'Ten', '9': 'Nine', '8': 'Eight', '7': 'Seven', '6': 'Six', '5': 'Five', '4': 'Four',
+                '3': 'Three',
+                '2': 'Two', 'k': 'King', 'q': 'Queen', 'j': 'Jack', 'a': 'Ace'}
+
+    EMOTE_REGEX = re.compile(r'<:([A-z0-9]+):\d+>')
+    VALUE_PATTERN = re.compile(r'Value: (?:Soft )?(\d+)')
 
     def __init__(self, card: str) -> None:
         if 4 <= len(card) <= 1:
@@ -22,7 +29,7 @@ class Card(object):
         self.symbol, self.suit = self.parts()
 
     @property
-    def value(self, safe: bool = True) -> int:
+    def value(self, safe: bool = True, unsafe_default: int = 0) -> int:
         """
         Attempts to determine the numerical value of the card.
 
@@ -33,25 +40,24 @@ class Card(object):
                 raise exceptions.NoAceValue(
                     'The Ace has multiple values (1 and 11) in Blackjack. Special handling is required.')
             return 0
-
-        if self.isFace():
+        elif self.isFace():
             return 10
-
-        numeric_match = re.match(r'^(\d{1,2})', self.raw_card)
-        if numeric_match is not None:
-            return int(numeric_match.group(1))
-
-        if safe:
+        elif self.isNumerical():
+            return int(self.symbol)
+        elif safe:
             raise exceptions.IndetermineValue('Could not determine the numeric value of this card.')
-        return 0
+        return unsafe_default
 
     def isAce(self) -> bool:
+        """Returns whether or not the card is a Ace card."""
         return self.symbol == 'a'
 
     def isNumerical(self) -> bool:
+        """Returns whether or not the card is numerical (not face or ace)."""
         return self.symbol.isnumeric()
 
     def isFace(self) -> bool:
+        """Returns whether or not the card is a face card (Queen, King, or Jack)"""
         return self.symbol in ['q', 'k', 'j']
 
     def parts(self) -> Tuple[str, str]:
@@ -62,15 +68,29 @@ class Card(object):
         match = re.match(r'^(\d{1,2}|[aqkj])([cdhs])$', self.raw_card, flags=re.IGNORECASE)
         return match.group(1), match.group(2)
 
+    @classmethod
+    def parse_cards(cls, card_str: discord.embeds.EmbedProxy) -> Tuple[int, List['Card']]:
+        """Given a EmbedProxy relating to a Blackjack Embed, finds a returns a list of Card objects and the value."""
+        card_matches = re.finditer(cls.EMOTE_REGEX, card_str.value)
+        value = re.search(cls.VALUE_PATTERN, card_str.value)
+
+        cards = []
+        for card in card_matches:
+            identifier = card.group(1)
+            if identifier != 'cardBack':
+                cards.append(Card(identifier))
+
+        return int(value.group(1)), cards
+
     def __repr__(self) -> str:
-        return f'Card({self.symbols[self.symbol]} of {self.suits[self.suit]})'
+        return f'Card({self._symbols[self.symbol]} of {self._suits[self.suit]})'
 
 
 def generate_table_structure(filename: str, column_keys: List[str], row_keys: List[str]) -> Dict[Tuple[str, str], str]:
     data = {}
     logger.debug(f'Generating table structure with {filename}')
     with open(os.path.join(constants.STATIC_DIR, filename)) as hard_file:
-        raw_data = [list(line) for line in hard_file.read().split('\n')]
+        raw_data = [list(line) for line in hard_file.read().split('\n') if len(line) > 0]
     for x, col_key in enumerate(column_keys):
         for y, row_key in enumerate(row_keys):
             data[(col_key, row_key)] = raw_data[y][x]
@@ -107,7 +127,7 @@ class Blackjack(object):
         """Converts the choice to the best possible choice based on the options given by the bot."""
 
     @classmethod
-    def access(cls, table: Union[HARD, SOFT, PAIR], key: Tuple[str, str]) -> str:
+    def access(cls, table: int, key: Tuple[str, str]) -> str:
         """
         Access table data given a column and row key.
 

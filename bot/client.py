@@ -8,7 +8,8 @@ from typing import Optional, Tuple
 import discord
 from discord.ext.tasks import loop
 
-from bot import constants, parsers, timings
+from bot import constants, parsers, timings, helpers
+from bot.blackjack import Card
 from bot.constants import PlayOptions
 
 logger = logging.getLogger(__file__)
@@ -20,10 +21,10 @@ class UnbelievaClient(discord.Client):
         super().__init__(*args, **kwargs)
         self.last_message = -1
 
+        # References
         self.bot_id, self.channel_id = bot_id, channel_id
-
         self.channel: Optional[discord.TextChannel] = None
-        self.bot: Optional[discord.User] = None
+
         self.tasks = {
             '$work': timings.Cooldown(5 * 60 + 2),
             '$slut': timings.Cooldown(13 * 60 + 2),
@@ -42,7 +43,6 @@ class UnbelievaClient(discord.Client):
         await self.wait_until_ready()
 
         self.channel: discord.TextChannel = self.get_channel(self.channel_id)
-        self.bot = self.bot_id
         self.check_task_available.start()
         ctypes.windll.kernel32.SetConsoleTitleW(f"#{self.channel.name}/{self.channel.guild.name}")
         logger.info(f'Connected to #{self.channel.name} in {self.channel.guild.name}')
@@ -52,7 +52,7 @@ class UnbelievaClient(discord.Client):
         if message.channel != self.channel or message.author == self.user:
             return
 
-        if message.author.id == self.bot and len(message.embeds) > 0:
+        if message.author.id == self.bot_id and len(message.embeds) > 0:
             embed = message.embeds[0]
             is_self = embed.author.name == f'{self.user.name}#{self.user.discriminator}'
 
@@ -73,8 +73,8 @@ class UnbelievaClient(discord.Client):
             # Handling for blackjack
             if embed.description.startswith('Type `hit` to draw another card'):
                 options = self.parse_options(embed.description)
-                my_cards = self.parse_cards(embed.fields[0])
-                dealer_cards = self.parse_cards(embed.fields[1])
+                my_cards = Card.parse_cards(embed.fields[0])
+                dealer_cards = Card.parse_cards(embed.fields[1])
                 print(options, my_cards, dealer_cards)
 
     def parse_options(self, options_str: str) -> PlayOptions:
@@ -86,24 +86,6 @@ class UnbelievaClient(discord.Client):
         # noinspection PyProtectedMember
         return PlayOptions._make(options)
 
-    def parse_cards(self, card_str: discord.embeds.EmbedProxy) -> Tuple[str, Optional[str], Tuple[int, bool]]:
-        """
-        Parses a Embed Proxy
-
-        :param card_str:
-        :return: [Card1, Card2?, [Value, isSoft]]
-        """
-        emote_pattern = r'<:([A-z0-9]+):\d+>'
-        value_pattern = r'Value: (Soft )?(\d+)'
-        cards = list(re.finditer(emote_pattern, card_str.value))
-        value = re.search(value_pattern, card_str.value)
-
-        c2: Optional[str]
-        c1, c2 = cards[0].group(1), cards[1].group(1)
-        c2 = c2 if c2 != 'cardBack' else None
-
-        return c1, c2, (int(value.group(2)), value.groups()[1] is None)
-
     def handle_blackjack(self):
         embed = self.current_blackjack.embeds[0]
         options = self.parse_options(embed.description)
@@ -114,9 +96,7 @@ class UnbelievaClient(discord.Client):
 
     @loop(seconds=1)
     async def check_task_available(self):
-        """
-        Loop to run tasks as soon as they are available.
-        """
+        """Loop to run tasks as soon as they are available."""
         await self.wait_until_ready()
 
         for task, task_cooldown in self.tasks.items():
@@ -132,13 +112,3 @@ class UnbelievaClient(discord.Client):
                 # Activate the cooldowns
                 task_cooldown.hit()
                 self.command_cooldown.hit()
-
-    async def command_sleep(self):
-        """Sleep right before sending a command."""
-        now = datetime.utcnow().timestamp()
-        time_between = now - self.last_message
-        wait_time = 6 - time_between
-
-        if wait_time > 0:
-            logger.debug(f'Sleeping for {round(wait_time, 2)}s before sending a command...')
-            await asyncio.sleep(wait_time)
