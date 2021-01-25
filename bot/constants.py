@@ -1,3 +1,9 @@
+"""
+constants.py
+
+Stores constants like paths to various locations, integers/strings or simple generated classes.
+"""
+
 import logging
 import os
 

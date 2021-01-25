@@ -1,3 +1,9 @@
+"""
+blackjack.py
+
+Stores classes and functions used for accessing Basic Blackjack Strategy, parsing Embed data and anything else
+related to Blackjack.
+"""
 import logging
 import os
 import re
@@ -14,8 +20,7 @@ logger.setLevel(constants.LOGGING_LEVEL)
 class Card(object):
     _suits = {'H': 'Hearts', 'S': 'Spades', 'C': 'Clubs', 'D': 'Diamonds'}
     _symbols = {'10': 'Ten', '9': 'Nine', '8': 'Eight', '7': 'Seven', '6': 'Six', '5': 'Five', '4': 'Four',
-                '3': 'Three',
-                '2': 'Two', 'k': 'King', 'q': 'Queen', 'j': 'Jack', 'a': 'Ace'}
+                '3': 'Three', '2': 'Two', 'k': 'King', 'q': 'Queen', 'j': 'Jack', 'a': 'Ace'}
 
     EMOTE_REGEX = re.compile(r'<:([A-z0-9]+):\d+>')
     VALUE_PATTERN = re.compile(r'Value: (?:Soft )?(\d+)')
@@ -44,7 +49,7 @@ class Card(object):
         elif self.isNumerical():
             return int(self.symbol)
         elif safe:
-            raise exceptions.IndetermineValue('Could not determine the numeric value of this card.')
+            raise exceptions.IndeterminateValue('Could not determine the numeric value of this card.')
         return unsafe_default
 
     def isAce(self) -> bool:

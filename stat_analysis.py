@@ -1,3 +1,9 @@
+"""
+stat_analysis.py
+
+A simple script for viewing income data from raw log data provided by the bot.
+"""
+
 import re
 
 import matplotlib.pyplot as plt

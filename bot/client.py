@@ -1,3 +1,9 @@
+"""
+client.py
+
+Stores the primary client class, which accesses the Discord API and processes messages automatically.
+"""
+
 import ctypes
 import logging
 from typing import Optional

@@ -1,3 +1,9 @@
+"""
+stats.py
+
+Holds classes and functions related to working with the database, i.e. storing statistics collected by the client.
+"""
+
 import asyncio
 import logging
 import sqlite3

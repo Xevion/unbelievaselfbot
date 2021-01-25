@@ -1,3 +1,9 @@
+"""
+parsers.py
+
+Stores classes related to parsing and extracting information from different messages returned by UnbelievaBot.
+"""
+
 import logging
 import re
 from abc import ABC

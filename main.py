@@ -1,3 +1,10 @@
+"""
+main.py
+
+The main launcher file for running the bot. Run python against the file, and specify the channel ID and the bot ID
+to be checked against. Also sets up logging for the rest of the project, and runs the client.
+"""
+
 import argparse
 import logging
 

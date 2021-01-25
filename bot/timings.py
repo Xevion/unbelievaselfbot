@@ -1,6 +1,11 @@
+"""
+timings.py
+
+Holds classes related to maintaining consistent cooldowns for various commands and API operations.
+"""
+
 import asyncio
 import logging
-import time
 from datetime import datetime
 from typing import Union, Optional
 
@@ -60,8 +65,3 @@ class Cooldown(object):
         if self.hot_until:
             return now or datetime.utcnow().timestamp() >= self.hot_until
         return True
-
-
-class TimingHandler(object):
-    """A class for easily managing and working with cooldown timers."""
-    pass
